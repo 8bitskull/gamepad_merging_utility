@@ -1,0 +1,117 @@
+print("This is a utility project to help with merging two *.gamepads files together.")
+print("Make sure the two gamepads files are located in the root of the project (next to game.project)")
+print("Set their paths in gamepads_merge.script")
+print("")
+print("Running utility...")
+
+--------
+local original = "8bitskull_master_gamepads.gamepads"
+local additions = "default.gamepads"
+--------
+
+print("Comparing", original, "to", additions)
+print("")
+
+local function load_file(file_path)
+    local file = io.open(file_path, "r")
+    if not file then
+        return nil
+    end
+
+	local result = {}
+
+	if file then
+		-- Iterate over the lines using io.lines iterator
+		local device
+		local platform
+		for line in file:lines() do
+			-- Process each line here
+
+			if string.find(line, "device:") then
+				device = line
+				device = string.gsub(device, "%s+", " ")
+				device = string.gsub(device, "device:", "")
+				device = string.gsub(device, '"', "")
+			end
+
+			if string.find(line, "platform:") then
+				platform = line
+				platform = string.gsub(platform, "%s+", " ")
+				platform = string.gsub(platform, "platform:", "")
+				platform = string.gsub(platform, '"', "")
+			end
+
+			if device and platform then
+				table.insert(result, {device = device, platform = platform})
+				device = nil
+				platform = nil
+			end
+		end
+
+		-- Close the file when done
+		file:close()
+	else
+		print("Failed to open file:", file_path)
+	end
+
+	return result
+end
+
+local function find_new_additions(t1, t2)
+    local new_additions = {}
+
+    for _, entry2 in ipairs(t2) do
+        local found = false
+
+        for _, entry1 in ipairs(t1) do
+            if entry1.platform == entry2.platform and entry1.device == entry2.device then
+                found = true
+                break
+            end
+        end
+
+        if not found then
+            table.insert(new_additions, { platform = entry2.platform, device = entry2.device })
+        end
+    end
+
+    return new_additions
+end
+
+local function find_duplicates(tbl)
+    local seen = {}
+    local duplicates = {}
+
+    for _, entry in ipairs(tbl) do
+        local key = entry.platform .. ":" .. entry.device
+        if seen[key] then
+            table.insert(duplicates, entry)
+        else
+            seen[key] = true
+        end
+    end
+
+    return duplicates
+end
+
+local original_output = load_file(original)
+local additions_output = load_file(additions)
+
+local new_additions = find_new_additions(original_output, additions_output)
+
+print("New gamepads entries that need to be added:")
+if #new_additions == 0 then
+	print("(None found!)")
+else
+	pprint(new_additions)
+end
+
+print("")
+
+local duplicates = find_duplicates(original_output)
+print("Checking for duplicates in ", original)
+if #duplicates == 0 then
+	print("(None found!)")
+else
+	pprint(duplicates)
+end
