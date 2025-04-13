@@ -4,13 +4,17 @@ print("Set their paths in gamepads_merge.script")
 print("")
 print("Running utility...")
 
+--Raw file of built-in gamepad mappings:
+--[[
+https://raw.githubusercontent.com/defold/defold/refs/heads/dev/engine/engine/content/builtins/input/default.gamepads
+--]]
+
 --------
 local original = "8bitskull_master_gamepads.gamepads"
 local additions = "default.gamepads"
 --------
 
-print("Comparing", original, "to", additions)
-print("")
+--FUNCTIONS
 
 local function load_file(file_path)
     local file = io.open(file_path, "r")
@@ -94,24 +98,119 @@ local function find_duplicates(tbl)
     return duplicates
 end
 
-local original_output = load_file(original)
-local additions_output = load_file(additions)
+-- Extract driver blocks and return structured tables
+local function parse_driver_blocks(file_path)
+	local file = io.open(file_path, "r")
+	if not file then return {} end
 
-local new_additions = find_new_additions(original_output, additions_output)
+	local blocks = {}
+	local current_lines = {}
+	local inside_driver = false
 
-print("New gamepads entries that need to be added:")
-if #new_additions == 0 then
-	print("(None found!)")
-else
-	pprint(new_additions)
+	for line in file:lines() do
+		if line:match("^%s*driver%s*{") then
+			inside_driver = true
+			current_lines = { line }
+		elseif inside_driver then
+			table.insert(current_lines, line)
+			if line:match("^%s*}") then
+				-- Join and parse full block
+				local block_str = table.concat(current_lines, "\n")
+				local device = block_str:match('device:%s*"([^"]+)"')
+				local platform = block_str:match('platform:%s*"([^"]+)"')
+				if device and platform then
+					local key = platform .. ":" .. device
+					local maps = {}
+					for map_str in block_str:gmatch("map%s*%b{}") do
+						-- Remove whitespace, collapse spacing
+						map_str = map_str:gsub("%s+", " "):gsub("^%s*", ""):gsub("%s*$", "")
+						table.insert(maps, map_str)
+					end
+					table.sort(maps) -- Normalize order
+					blocks[key] = { device = device, platform = platform, maps = maps }
+				end
+				inside_driver = false
+			end
+		end
+	end
+
+	file:close()
+	return blocks
 end
 
-print("")
+-- Compare blocks structurally, ignoring order/spacing
+local function find_structural_differences(original_path, additions_path)
+	local original_blocks = parse_driver_blocks(original_path)
+	local additions_blocks = parse_driver_blocks(additions_path)
 
-local duplicates = find_duplicates(original_output)
-print("Checking for duplicates in ", original)
-if #duplicates == 0 then
-	print("(None found!)")
-else
-	pprint(duplicates)
+	local differences_found = false
+
+	for key, original_block in pairs(original_blocks) do
+		local addition_block = additions_blocks[key]
+		if addition_block then
+			local orig_maps = table.concat(original_block.maps, "\n")
+			local add_maps = table.concat(addition_block.maps, "\n")
+			if orig_maps ~= add_maps then
+				print("\nDifference found for:", key)
+				print("---- " .. original_path .. ": ----")
+				print(orig_maps)
+				print("---- " .. additions_path .. ": ----")
+				print(add_maps)
+				differences_found = true
+			end
+		end
+	end
+
+	if not differences_found then
+		print("No structural differences found in shared mappings.")
+	end
+end
+
+function init(self)
+
+	print("Comparing", original, "to", additions)
+	print("")
+
+	local original_output = load_file(original)
+	local additions_output = load_file(additions)
+
+	---
+
+	local things_we_need_to_add_to_builtins = find_new_additions(additions_output, original_output)
+
+	print("Mappings in our custom file that we should submit to builtins:")
+	if #things_we_need_to_add_to_builtins == 0 then
+		print("(None found!)")
+	else
+		pprint(things_we_need_to_add_to_builtins)
+	end
+	print("")
+
+	---
+
+	local new_additions = find_new_additions(original_output, additions_output)
+
+	print("New gamepads entries that need to be added to your custom file:")
+	if #new_additions == 0 then
+		print("(None found!)")
+	else
+		pprint(new_additions)
+	end
+	print("")
+
+	---
+
+	local duplicates = find_duplicates(original_output)
+	print("Checking for duplicates in ", original)
+	if #duplicates == 0 then
+		print("(None found!)")
+	else
+		pprint(duplicates)
+	end
+	print("")
+
+	---BEGIN ACTUAL COMPARISON OF MAPPINGS
+
+	print("Comparing shared mappings structurally...")
+	find_structural_differences(original, additions)
 end
