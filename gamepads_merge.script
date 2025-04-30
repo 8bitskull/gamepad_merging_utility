@@ -107,10 +107,17 @@ local function parse_driver_blocks(file_path)
 	local current_lines = {}
 	local inside_driver = false
 
+	local trimmed
+	local i = 0
 	for line in file:lines() do
-		if line:match("^%s*driver%s*{") then
+		i = i + 1
+		trimmed = line:match("^%s*(.-)%s*$")
+
+		if trimmed  == "driver" then
 			inside_driver = true
 			current_lines = { line }
+		elseif trimmed:match("^driver") then
+			print("Malformed driver block line: ", line, "File: ", file_path, "Line number: ", i)
 		elseif inside_driver then
 			table.insert(current_lines, line)
 			if line:match("^%s*}") then
