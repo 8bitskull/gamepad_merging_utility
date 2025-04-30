@@ -1,0 +1,112 @@
+-- local platform_filter = {
+--     ["Windows"] = "windows",
+--     ["Linux"] = "linux",
+--     ["Mac OS X"] = "osx"
+-- }
+
+-- local function parse_mapping_line(line)
+--     local parts = {}
+--     for part in line:gmatch("[^,]+") do
+--         parts[#parts+1] = part
+--     end
+
+--     if #parts < 3 then return nil end
+
+--     local guid = parts[1]
+--     local name = parts[2]
+--     local platform_tag = line:match("platform:([%w%s]+)")
+--     local platform = platform_tag and platform_filter[platform_tag]
+--     if not platform then return nil end
+
+--     local mappings = {}
+--     for i = 3, #parts do
+--         local entry = parts[i]
+--         if not entry:match("^platform:") then
+--             mappings[#mappings+1] = entry
+--         end
+--     end
+
+--     return {
+--         name = name,
+--         platform = platform,
+--         mappings = mappings
+--     }
+-- end
+
+-- local function sdl_entry_to_defold(entry)
+--     local output = {}
+
+--     output[#output+1] = "driver"
+--     output[#output+1] = "{"
+--     output[#output+1] = string.format("    device: \"%s\"", entry.name)
+--     output[#output+1] = string.format("    platform: \"%s\"", entry.platform)
+--     output[#output+1] = "    dead_zone: 0.200"
+
+--     for _, map in ipairs(entry.mappings) do
+--         local input, output_raw = map:match("([^:]+):(.+)")
+--         if input and output_raw then
+--             local defold_map = ""
+--             if output_raw:match("^b%d+") then
+--                 local index = tonumber(output_raw:match("b(%d+)") or 0)
+--                 defold_map = string.format("    map { input: GAMEPAD_%s type: GAMEPAD_TYPE_BUTTON index: %d }", input:upper(), index)
+--             elseif output_raw:match("^a%d+") then
+--                 local index = tonumber(output_raw:match("a(%d+)") or 0)
+--                 local mod = " mod { mod: GAMEPAD_MODIFIER_CLAMP }"
+--                 defold_map = string.format("    map { input: GAMEPAD_%s type: GAMEPAD_TYPE_AXIS index: %d%s }", input:upper(), index, mod)
+--             elseif output_raw:match("^h0%..$") then
+--                 -- D-pad as hat, SDL style e.g., h0.1
+--                 local dir = output_raw:match("h0%.(%d)")
+--                 local hat_input = {
+--                     ["0"] = "RPAD_LEFT",
+--                     ["1"] = "RPAD_UP",
+--                     ["2"] = "RPAD_RIGHT",
+--                     ["4"] = "RPAD_DOWN"
+--                 }
+--                 if hat_input[dir] then
+--                     defold_map = string.format("    map { input: GAMEPAD_%s type: GAMEPAD_TYPE_BUTTON index: %d }", hat_input[dir], 0)
+--                 end
+--             end
+--             if defold_map ~= "" then
+--                 output[#output+1] = defold_map
+--             end
+--         end
+--     end
+
+--     output[#output+1] = "}"
+--     return table.concat(output, "\n")
+-- end
+
+-- local function convert_and_save()
+--     local url = "https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/master/gamecontrollerdb.txt"
+--     http.request(url, "GET", function(self, id, response)
+        
+--         if response.status ~= 200 and response.status ~= 304 then
+--             print("Failed to fetch SDL database.", response.status)
+--             return
+--         end
+
+--         local out = {}
+--         local body = response.response
+--         for line in body:gmatch(".-\n") do
+--             local entry = parse_mapping_line(line)
+--             if entry then
+--                 local defold = sdl_entry_to_defold(entry)
+--                 out[#out+1] = defold
+--             end
+--         end
+
+--         local file = io.open("SDL_database.gamepads", "w")
+--         if file then
+--             file:write(table.concat(out, "\n\n"))
+--             file:close()
+--             print("SDL database converted and saved to SDL_database.gamepads")
+--         else
+--             print("Failed to write SDL_database.gamepads")
+--         end
+--     end, nil, nil, {timeout = 3})
+-- end
+
+
+-- function init(self)
+--     convert_and_save()
+-- end

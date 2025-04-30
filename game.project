@@ -5,12 +5,16 @@ main_collection = /main/main.collectionc
 shared_state = 1
 
 [display]
-width = 256
-height = 256
+width = 960
+height = 540
 
 [android]
 input_method = HiddenInputField
 
 [project]
 title = Gamepad merging utility
+dependencies#0 = https://github.com/britzl/extension-imgui/archive/refs/tags/2.3.1.zip
+
+[input]
+game_binding = /imgui/bindings/imgui.input_bindingc
 
